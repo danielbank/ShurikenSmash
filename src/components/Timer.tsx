@@ -1,5 +1,6 @@
 import { memo, useSyncExternalStore } from "react";
-import { GAME_MS, BLIND_THRESHOLD_MS, type Phase, type GameMode, type Clock } from "../game/config";
+import { GAME_MS, BLIND_THRESHOLD_MS } from "../game/config";
+import type { Phase, GameMode, Clock } from "../game/types";
 
 interface TimerProps {
   phase: Phase;

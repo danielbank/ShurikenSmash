@@ -2,17 +2,14 @@ import { useEffect, useMemo, useReducer, useState } from "react";
 import { createMusicPlayer } from "../audio/chiptune";
 import {
   BOOM_HOLD_MS,
+  COUNTDOWN_GO_MS,
   ENDED_HOLD_MS,
   GAME_MS,
   VIDEO_FALLBACK_MS,
   getOutcomeImageUrl,
   getOutcomeVideoUrl,
-  type Clock,
-  type GameMode,
-  type NinjaColor,
-  type Outcome,
-  type PlayerCount,
 } from "../game/config";
+import type { Clock, GameMode, NinjaColor, Outcome, PlayerCount } from "../game/types";
 import { createInitialState, gameReducer } from "../game/reducer";
 
 function createClock(initial: number): Clock {
@@ -63,9 +60,11 @@ export function useGame() {
     []
   );
 
-  // Outcome asset preloading (runs whenever a match is active)
+  // Outcome asset preloading. Keyed on "is a match active" (not `phase`) so the
+  // downloads are not cancelled and restarted on every phase change.
+  const isMatchActive = phase !== "menu";
   useEffect(() => {
-    if (phase === "menu") return;
+    if (!isMatchActive) return;
     const activeNinjas = ninjas.slice(0, numPlayers);
     const OUTCOMES: readonly Outcome[] = ["win", "lose"];
     const videos: HTMLVideoElement[] = [];
@@ -88,7 +87,7 @@ export function useGame() {
         video.load();
       }
     };
-  }, [phase, ninjas, numPlayers]);
+  }, [isMatchActive, ninjas, numPlayers]);
 
   // Global Keyboard Handler
   useEffect(() => {
@@ -108,10 +107,10 @@ export function useGame() {
     clock.set(GAME_MS);
     const id = window.setTimeout(
       () =>
-        countdown > 1
+        countdown > 0
           ? dispatch({ type: "countdown_tick" })
           : dispatch({ type: "begin_play", at: performance.now() }),
-      1000
+      countdown > 0 ? 1000 : COUNTDOWN_GO_MS
     );
     return () => window.clearTimeout(id);
   }, [phase, countdown, clock]);

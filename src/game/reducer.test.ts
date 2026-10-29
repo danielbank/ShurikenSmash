@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BAKUDAN_MAX_MS, BAKUDAN_MIN_MS, GAME_MS, RESULTS_INPUT_LOCK_MS } from "./config";
-import type { GameMode } from "./config";
+import type { GameMode } from "./types";
 import { assignColor, DEFAULT_NINJAS } from "./ninjas";
 import { createInitialState, gameReducer, type GameAction, type GameState } from "./reducer";
 
@@ -12,6 +12,16 @@ function playing(mode: GameMode = "mash", startedAt = 1000): GameState {
   s = run(s, { type: "countdown_tick" }, { type: "countdown_tick" }, { type: "countdown_tick" });
   return run(s, { type: "begin_play", at: startedAt });
 }
+
+describe("countdown", () => {
+  it("only begins play once the countdown has reached zero", () => {
+    let s = run(createInitialState(), { type: "start" });
+    expect(run(s, { type: "begin_play", at: 0 }).phase).toBe("countdown");
+    s = run(s, { type: "countdown_tick" }, { type: "countdown_tick" }, { type: "countdown_tick" });
+    expect(s.countdown).toBe(0);
+    expect(run(s, { type: "begin_play", at: 0 }).phase).toBe("playing");
+  });
+});
 
 describe("menu keys", () => {
   it("starts on Enter and picks player count with 3/4", () => {

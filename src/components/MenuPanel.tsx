@@ -1,16 +1,6 @@
 import type { CSSProperties } from "react";
-import {
-  MODE_DETAILS,
-  AVAILABLE_COLORS,
-  COLOR_OPTIONS,
-  PLAYER_COUNTS,
-  getImageUrl,
-  getRewardImageUrl,
-  type Ninja,
-  type NinjaColor,
-  type GameMode,
-  type PlayerCount,
-} from "../game/config";
+import { MODE_DETAILS, AVAILABLE_COLORS, COLOR_OPTIONS, PLAYER_COUNTS, getImageUrl, getRewardImageUrl } from "../game/config";
+import type { Ninja, NinjaColor, GameMode, PlayerCount } from "../game/types";
 
 interface MenuPanelProps {
   mode: GameMode;
@@ -143,10 +133,17 @@ export function MenuPanel({
       >
         <img
           src={getImageUrl("begin")}
-          alt="Begin Battle"
+          alt=""
           className="start-btn-img"
         />
       </button>
+      <p className="hint">
+        Press ENTER to start · 3 / 4 to choose players · ESC quits a round
+      </p>
+      <p className="hint hint-small">
+        Picking a color another ninja wears swaps the two. Budget keyboards may drop
+        simultaneous key presses.
+      </p>
     </div>
   );
 }

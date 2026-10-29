@@ -6,15 +6,17 @@ import {
   MAX_PLAYERS,
   MAX_VISIBLE_HITS,
   RESULTS_INPUT_LOCK_MS,
-  type GameMode,
-  type Hit,
-  type Knockout,
-  type KnockoutCause,
-  type Ninja,
-  type NinjaColor,
-  type Phase,
-  type PlayerCount,
 } from "./config";
+import type {
+  GameMode,
+  Hit,
+  Knockout,
+  KnockoutCause,
+  Ninja,
+  NinjaColor,
+  Phase,
+  PlayerCount,
+} from "./types";
 import { assignColor, DEFAULT_NINJAS } from "./ninjas";
 
 function unit(seed: number): number {
@@ -131,7 +133,7 @@ function endRound(state: GameState): GameState {
 }
 
 function beginPlay(state: GameState, at: number): GameState {
-  const next: GameState = { ...state, phase: "playing", countdown: 0, startedAt: at };
+  const next: GameState = { ...state, phase: "playing", startedAt: at };
   if (state.mode !== "bakudan") return next;
 
   // The start timestamp is effectively random, so it seeds the hidden fuse length and
@@ -275,7 +277,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ? { ...state, countdown: state.countdown - 1 }
         : state;
     case "begin_play":
-      return state.phase === "countdown" ? beginPlay(state, action.at) : state;
+      return state.phase === "countdown" && state.countdown === 0
+        ? beginPlay(state, action.at)
+        : state;
     case "time_up":
       if (state.phase !== "playing") return state;
       if (state.mode !== "bakudan") return endRound(state);

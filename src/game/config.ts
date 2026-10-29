@@ -1,58 +1,10 @@
-/* ---------- Types ---------- */
-export type Phase = "menu" | "countdown" | "playing" | "boom" | "video" | "ended" | "results";
-export type GameMode = "mash" | "blind" | "bakudan";
-export type PlayerCount = 3 | 4;
-export type Outcome = "win" | "lose";
-export type NinjaColor = "blue" | "green" | "orange" | "purple" | "red" | "yellow";
-export type BonusTier = "plus100" | "plus50" | "plus10" | "plus0";
-
-export interface Ninja {
-  id: number;
-  name: string;
-  /** Label shown on the keycap (e.g. "A"). */
-  key: string;
-  /** Layout-independent `KeyboardEvent.code` used for matching (e.g. "KeyA"). */
-  code: string;
-  colorName: NinjaColor;
-  color: string;
-  glow: string;
-  kanji: string;
-  bgImage: string;
-}
-
-export interface Hit {
-  id: number;
-  x: number;
-  y: number;
-  rot: number;
-}
-
-export type KnockoutCause = "boom" | "fumble";
-
-export interface Knockout {
-  playerId: number;
-  round: number;
-  cause: KnockoutCause;
-}
-
-export interface PlayerResultInfo {
-  /** 1-based competition rank; `null` for players who failed / nobody scored. */
-  rank: number | null;
-  rankLabel: string;
-  rankImage: string;
-  scoreLabel: string;
-  bonusImage?: string;
-}
-
-export interface Clock {
-  getSnapshot: () => number;
-  subscribe: (listener: () => void) => () => void;
-  set: (value: number) => void;
-}
+import type { GameMode, NinjaColor, Outcome, PlayerCount, BonusTier } from "./types";
 
 /* ---------- Timing ---------- */
 export const GAME_MS = 10_000;
 export const COUNTDOWN_START = 3;
+/** How long "STRIKE!" stays on screen before the round starts. */
+export const COUNTDOWN_GO_MS = 600;
 export const BLIND_THRESHOLD_MS = 5_000;
 /** Bakudan fuse length is random per round within this range (and hidden from players). */
 export const BAKUDAN_MIN_MS = 10_000;

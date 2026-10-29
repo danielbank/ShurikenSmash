@@ -1,12 +1,5 @@
-import {
-  getBonusImageUrl,
-  getRankImageUrl,
-  type BonusTier,
-  type GameMode,
-  type Knockout,
-  type Ninja,
-  type PlayerResultInfo,
-} from "./config";
+import { getBonusImageUrl, getRankImageUrl } from "./config";
+import type { BonusTier, GameMode, Knockout, Ninja, PlayerResultInfo } from "./types";
 
 export interface RoundInput {
   mode: GameMode;
@@ -108,7 +101,7 @@ export function computeResults({
       continue;
     }
     const rank = competitionRank(struck, { id: entry.id, time: entry.time }, (a, b) => a.time < b.time);
-    byPlayer[entry.id] = placed(rank, `${entry.time.toFixed(3)} seconds`, playerCount);
+    byPlayer[entry.id] = placed(rank, `${entry.time.toFixed(3)}s left`, playerCount);
     if (rank === 1) winnerIds.add(entry.id);
   }
   return { winnerIds, byPlayer };
