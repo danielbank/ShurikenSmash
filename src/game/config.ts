@@ -13,6 +13,15 @@ export const BAKUDAN_MAX_MS = 20_000;
 export const WABUN_MS = 90_000;
 /** Wabun: a press held at least this long is a dash; shorter is a dot. */
 export const WABUN_DASH_MS = 200;
+/** Tsugitashi: round length, and the range the random target is drawn from. */
+export const TSUGITASHI_MS = 20_000;
+export const TSUGITASHI_MIN_TARGET = 1_000_000;
+export const TSUGITASHI_MAX_TARGET = 2_000_000;
+/**
+ * Tsugitashi: a hold adds e^(heldMs / this), so ~7s of holding reaches the target range.
+ * Lower it to accelerate faster.
+ */
+export const TSUGITASHI_GROWTH_MS = 500;
 /** How long an elimination is shown before the next Bakudan round's countdown. */
 export const BOOM_HOLD_MS = 2_500;
 /** Safety net: the round moves on even if a video never fires `ended`. */
@@ -106,6 +115,16 @@ export const MODE_DETAILS: Record<
       "Voiced kana like GU are two characters: KU then the ゛ mark.",
       "One wrong dot or dash sends you back to the start of the word.",
       "First ninja to spell the whole word wins!",
+    ],
+  },
+  tsugitashi: {
+    title: "TSUGITASHI",
+    rules: [
+      "A target number appears. Add up to it — without going over!",
+      "Tap your button to add 1.",
+      "Hold it to keep adding — faster and faster the longer you hold.",
+      "Let go before it overshoots, then hold again to creep closer.",
+      "Go over and you BUST. Closest without going over wins after 20 seconds.",
     ],
   },
 };

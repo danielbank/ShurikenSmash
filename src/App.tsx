@@ -9,6 +9,8 @@ import { MenuPanel } from "./components/MenuPanel";
 import { WabunChart } from "./components/WabunChart";
 import { WabunProgress } from "./components/WabunProgress";
 import { WordBanner } from "./components/WordBanner";
+import { TsugitashiMeter } from "./components/TsugitashiMeter";
+import { formatNumber } from "./game/tsugitashi";
 import "./App.css";
 
 export default function App() {
@@ -33,6 +35,9 @@ export default function App() {
     partials,
     pressedAt,
     mistakes,
+    target,
+    startedAt,
+    roundMs,
   } = state;
   const word = WORDS[wordIndex];
   const { logoImage, title } = MODE_DETAILS[mode];
@@ -53,9 +58,10 @@ export default function App() {
             knockouts,
             progress,
             wordLength: word.codes.length,
+            target,
           })
         : null,
-    [isRoundOver, mode, players, counts, strikeTimes, knockouts, progress, word]
+    [isRoundOver, mode, players, counts, strikeTimes, knockouts, progress, word, target]
   );
 
   const activeCounts = counts.slice(0, numPlayers);
@@ -93,7 +99,14 @@ export default function App() {
 
       {phase !== "menu" && (
         <>
-          <Timer phase={phase} mode={mode} clock={clock} round={round} roundMs={state.roundMs} />
+          <Timer phase={phase} mode={mode} clock={clock} round={round} roundMs={roundMs} />
+
+          {mode === "tsugitashi" && phase !== "countdown" && (
+            <div className="tsugi-target">
+              <span className="tsugi-target-label">Target</span>
+              <span className="tsugi-target-value">{formatNumber(target)}</span>
+            </div>
+          )}
 
           {mode === "wabun" && (phase === "playing" || phase === "countdown") && (
             <div className="wabun-board">
@@ -137,7 +150,16 @@ export default function App() {
                   knockout={knockouts.find((k) => k.playerId === p.id)}
                   isExploding={phase === "boom" && lastKnockout?.playerId === p.id}
                   playArea={
-                    mode === "wabun" && phase !== "countdown" ? (
+                    mode === "tsugitashi" && phase !== "countdown" ? (
+                      <TsugitashiMeter
+                        banked={counts[p.id]}
+                        target={target}
+                        pressedAt={phase === "playing" ? pressedAt[p.id] : undefined}
+                        clock={clock}
+                        startedAt={startedAt}
+                        roundMs={roundMs}
+                      />
+                    ) : mode === "wabun" && phase !== "countdown" ? (
                       <WabunProgress
                         word={word}
                         sent={progress[p.id]}

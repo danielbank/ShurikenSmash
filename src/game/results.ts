@@ -1,4 +1,5 @@
 import { getBonusImageUrl, getRankImageUrl } from "./config";
+import { formatNumber, isBust } from "./tsugitashi";
 import type { BonusTier, GameMode, Knockout, Ninja, PlayerResultInfo } from "./types";
 
 export interface RoundInput {
@@ -11,6 +12,8 @@ export interface RoundInput {
   /** Wabun: Morse characters each player sent correctly, out of `wordLength`. */
   progress?: readonly number[];
   wordLength?: number;
+  /** Tsugitashi: the number to reach; totals come from `counts`. */
+  target?: number;
 }
 
 export interface RoundResults {
@@ -59,6 +62,7 @@ export function computeResults({
   knockouts = [],
   progress = [],
   wordLength = 0,
+  target = 0,
 }: RoundInput): RoundResults {
   const byPlayer: Record<number, PlayerResultInfo> = {};
   const winnerIds = new Set<number>();
@@ -93,6 +97,29 @@ export function computeResults({
       const { cause, round } = knockouts[index];
       const label = `${cause === "boom" ? "Blown Up" : "Fumbled"} · Round ${round}`;
       byPlayer[p.id] = placed(playerCount - index, label, playerCount);
+    }
+    return { winnerIds, byPlayer };
+  }
+
+  if (mode === "tsugitashi") {
+    // Closest without going over wins; going over is a bust.
+    const entries = players.map((p) => ({ id: p.id, value: counts[p.id] ?? 0 }));
+    const valid = entries.filter((e) => e.value > 0 && !isBust(e.value, target));
+    for (const entry of entries) {
+      const { value } = entry;
+      if (isBust(value, target)) {
+        byPlayer[entry.id] = failed("BUST", `Over by ${formatNumber(value - target)}`);
+        continue;
+      }
+      if (!valid.includes(entry)) {
+        byPlayer[entry.id] = failed("NO SCORE", "0");
+        continue;
+      }
+      const label =
+        value === target ? `EXACT! ${formatNumber(value)}` : `${formatNumber(target - value)} short`;
+      const rank = competitionRank(valid, entry, (a, b) => a.value > b.value);
+      byPlayer[entry.id] = placed(rank, label, playerCount);
+      if (rank === 1) winnerIds.add(entry.id);
     }
     return { winnerIds, byPlayer };
   }

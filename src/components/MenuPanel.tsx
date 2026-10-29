@@ -56,6 +56,14 @@ export function MenuPanel({
         >
           🍣 Wabun (Morse Race)
         </button>
+        <button
+          type="button"
+          className={`tab-btn ${mode === "tsugitashi" ? "active" : ""}`}
+          aria-pressed={mode === "tsugitashi"}
+          onClick={() => onSelectMode("tsugitashi")}
+        >
+          ➕ Tsugitashi (Don't Go Over)
+        </button>
       </div>
 
       <div className="menu-interactive-section">

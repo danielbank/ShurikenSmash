@@ -44,9 +44,11 @@ export function useGame() {
   const [clock] = useState(() => createClock(GAME_MS));
   const [music] = useState(() => createMusicPlayer());
   const { phase, mode, countdown, startedAt, roundMs, ninjas, numPlayers, knockouts } = state;
-  const { pressedAt, mistakes } = state;
+  const { pressedAt, mistakes, counts, target } = state;
   const lastKnockout = knockouts.at(-1);
   const totalMistakes = mistakes.reduce((sum, n) => sum + n, 0);
+  const bustCount =
+    mode === "tsugitashi" ? counts.slice(0, numPlayers).filter((n) => n > target).length : 0;
 
   const actions = useMemo(
     () => ({
@@ -183,11 +185,16 @@ export function useGame() {
     else music.fumble();
   }, [lastKnockout, music]);
 
-  // Wabun: a Morse sidetone (one pitch per player) sounds while each button is held
+  // Key tones while a button is held: a steady Morse sidetone in Wabun, a climbing riser in Tsugitashi
   useEffect(() => {
-    if (mode !== "wabun") return;
-    pressedAt.forEach((at, id) => music.sidetone(id, at !== undefined));
+    if (mode === "wabun") pressedAt.forEach((at, id) => music.sidetone(id, at !== undefined));
+    if (mode === "tsugitashi") pressedAt.forEach((at, id) => music.riser(id, at !== undefined));
   }, [mode, pressedAt, music]);
+
+  // Tsugitashi: fail buzz whenever someone banks a total over the target
+  useEffect(() => {
+    if (bustCount > 0) music.fumble();
+  }, [bustCount, music]);
 
   useEffect(() => {
     if (phase !== "playing") music.silenceSidetones();

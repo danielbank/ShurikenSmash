@@ -4,9 +4,13 @@ import {
   BAKUDAN_MIN_MS,
   GAME_MS,
   RESULTS_INPUT_LOCK_MS,
+  TSUGITASHI_MAX_TARGET,
+  TSUGITASHI_MIN_TARGET,
+  TSUGITASHI_MS,
   WABUN_DASH_MS,
   WABUN_MS,
 } from "./config";
+import { holdAmount } from "./tsugitashi";
 import { WORDS } from "./wabun";
 import type { GameMode } from "./types";
 import { assignColor, DEFAULT_NINJAS } from "./ninjas";
@@ -227,5 +231,55 @@ describe("wabun", () => {
   it("ignores releases without a press", () => {
     const s = spelling();
     expect(run(s, { type: "key_up", code: "KeyA", at: 2000 })).toBe(s);
+  });
+});
+
+describe("tsugitashi", () => {
+  const hold = (s: GameState, id: number, from: number, ms: number) => {
+    const code = ["KeyA", "KeyF", "KeyH", "KeyL"][id];
+    s = run(s, { type: "key_down", code, at: from });
+    return run(s, { type: "key_up", code, at: from + ms });
+  };
+
+  it("draws a target in range and gives the round its own length", () => {
+    for (const random of [0, 0.5, 0.9999]) {
+      const s = playing("tsugitashi", 1000, random);
+      expect(s.target).toBeGreaterThanOrEqual(TSUGITASHI_MIN_TARGET);
+      expect(s.target).toBeLessThanOrEqual(TSUGITASHI_MAX_TARGET);
+      expect(s.roundMs).toBe(TSUGITASHI_MS);
+    }
+  });
+
+  it("adds 1 per tap and more the longer a press is held", () => {
+    let s = playing("tsugitashi");
+    s = hold(s, 0, 1100, 50);
+    s = hold(s, 0, 1200, 50);
+    expect(s.counts[0]).toBe(2);
+    s = hold(s, 1, 1100, 5000);
+    expect(s.counts[1]).toBe(holdAmount(5000));
+  });
+
+  it("locks out a player who goes over", () => {
+    let s: GameState = { ...playing("tsugitashi"), target: 100 };
+    s = hold(s, 0, 1100, 5000);
+    expect(s.counts[0]).toBeGreaterThan(100);
+    const after = hold(s, 0, 7000, 50);
+    expect(after.counts[0]).toBe(s.counts[0]);
+  });
+
+  it("banks holds still down at the buzzer, counting only up to the buzzer", () => {
+    let s = playing("tsugitashi", 1000);
+    s = run(s, { type: "key_down", code: "KeyA", at: 1000 + TSUGITASHI_MS - 3000 });
+    s = run(s, { type: "time_up" });
+    expect(s.phase).toBe("video");
+    expect(s.counts[0]).toBe(holdAmount(3000));
+  });
+
+  it("ends early once everyone has gone over", () => {
+    let s: GameState = { ...playing("tsugitashi"), target: 10 };
+    for (const id of [0, 1, 2]) s = hold(s, id, 1100, 3000);
+    expect(s.phase).toBe("playing");
+    s = hold(s, 3, 1100, 3000);
+    expect(s.phase).toBe("video");
   });
 });

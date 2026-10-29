@@ -44,7 +44,8 @@
 /* ---------- Mode Selector Tabs ---------- */
 .mode-tabs {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
   justify-content: center;
   margin-bottom: 1rem;
 }

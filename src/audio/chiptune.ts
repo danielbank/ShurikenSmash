@@ -140,8 +140,15 @@ export interface MusicPlayer {
   fumble: () => void;
   /** Turns a player's Morse key tone on or off (each player has their own pitch). */
   sidetone: (playerId: number, on: boolean) => void;
+  /** Tsugitashi: a tone whose pitch climbs while a player holds, tracking the accelerating count. */
+  riser: (playerId: number, on: boolean) => void;
   silenceSidetones: () => void;
 }
+
+const RISER_START_HZ = 160;
+const RISER_TOP_HZ = 3200;
+/** Seconds for the riser to reach its top pitch: about as long as a hold takes to reach the target. */
+const RISER_SECONDS = 7.5;
 
 /** Morse sidetone pitches per player, far enough apart to tell who is keying. */
 const SIDETONE_HZ = [600, 750, 900, 1050];
@@ -309,7 +316,7 @@ export function createMusicPlayer(song: Song = BAKUDAN_SONG): MusicPlayer {
     }
   };
 
-  const sidetone = (playerId: number, on: boolean) => {
+  const keyTone = (playerId: number, on: boolean, rising: boolean) => {
     const current = sidetones.get(playerId);
     if (!on) {
       if (!current || !ctx) return;
@@ -323,7 +330,15 @@ export function createMusicPlayer(song: Song = BAKUDAN_SONG): MusicPlayer {
     const c = ensureContext();
     const osc = c.createOscillator();
     osc.type = "square";
-    osc.frequency.value = SIDETONE_HZ[playerId % SIDETONE_HZ.length];
+    const hz = SIDETONE_HZ[playerId % SIDETONE_HZ.length];
+    if (rising) {
+      // Per-player offset keeps simultaneous risers distinguishable.
+      const offset = hz / SIDETONE_HZ[0];
+      osc.frequency.setValueAtTime(RISER_START_HZ * offset, c.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(RISER_TOP_HZ * offset, c.currentTime + RISER_SECONDS);
+    } else {
+      osc.frequency.value = hz;
+    }
     const gain = c.createGain();
     gain.gain.setValueAtTime(0, c.currentTime);
     gain.gain.setTargetAtTime(0.06, c.currentTime, 0.003);
@@ -332,9 +347,12 @@ export function createMusicPlayer(song: Song = BAKUDAN_SONG): MusicPlayer {
     sidetones.set(playerId, { osc, gain });
   };
 
+  const sidetone = (playerId: number, on: boolean) => keyTone(playerId, on, false);
+  const riser = (playerId: number, on: boolean) => keyTone(playerId, on, true);
+
   const silenceSidetones = () => {
-    for (const id of sidetones.keys()) sidetone(id, false);
+    for (const id of sidetones.keys()) keyTone(id, false, false);
   };
 
-  return { start, stop, boom, fumble, sidetone, silenceSidetones };
+  return { start, stop, boom, fumble, sidetone, riser, silenceSidetones };
 }

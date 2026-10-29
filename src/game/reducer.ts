@@ -6,6 +6,9 @@ import {
   MAX_PLAYERS,
   MAX_VISIBLE_HITS,
   RESULTS_INPUT_LOCK_MS,
+  TSUGITASHI_MAX_TARGET,
+  TSUGITASHI_MIN_TARGET,
+  TSUGITASHI_MS,
   WABUN_DASH_MS,
   WABUN_MS,
 } from "./config";
@@ -20,6 +23,7 @@ import type {
   PlayerCount,
 } from "./types";
 import { assignColor, DEFAULT_NINJAS } from "./ninjas";
+import { holdAmount, isBust } from "./tsugitashi";
 import { WORDS } from "./wabun";
 
 function unit(seed: number): number {
@@ -72,6 +76,8 @@ export interface GameState {
   pressedAt: (number | undefined)[];
   /** Wabun: mistakes per player (each one reset them to the start). */
   mistakes: number[];
+  /** Tsugitashi: the number to reach without going over (players' totals live in `counts`). */
+  target: number;
 }
 
 export type GameAction =
@@ -132,6 +138,7 @@ export function createInitialState(): GameState {
     countdown: COUNTDOWN_START,
     hitSeq: 0,
     wordIndex: 0,
+    target: 0,
     ...roundState(),
   };
 }
@@ -146,7 +153,8 @@ function startRound(state: GameState): GameState {
     ...roundState(),
     phase: "countdown",
     countdown: COUNTDOWN_START,
-    roundMs: state.mode === "wabun" ? WABUN_MS : GAME_MS,
+    roundMs:
+      state.mode === "wabun" ? WABUN_MS : state.mode === "tsugitashi" ? TSUGITASHI_MS : GAME_MS,
   };
 }
 
@@ -163,6 +171,10 @@ function beginPlay(state: GameState, at: number, random: number): GameState {
   // Randomness arrives with the action so the reducer stays pure and testable.
   const seed = Math.floor(random * 2 ** 32) | 0;
 
+  if (state.mode === "tsugitashi") {
+    const span = TSUGITASHI_MAX_TARGET - TSUGITASHI_MIN_TARGET + 1;
+    return { ...next, target: TSUGITASHI_MIN_TARGET + Math.floor(unit(seed) * span) };
+  }
   if (state.mode === "wabun") {
     // Never repeat the previous word back to back.
     const offset = 1 + Math.floor(unit(seed) * (WORDS.length - 1));
@@ -264,11 +276,32 @@ function sendSymbol(state: GameState, id: number, symbol: "." | "-"): GameState 
   return progress[id] === codes.length ? endRound(updated) : updated;
 }
 
+/** Tsugitashi: bank what a hold added. Holds still down at the buzzer count up to the buzzer. */
+function bankHold(state: GameState, id: number, at: number): GameState {
+  const pressedAt = state.pressedAt[id];
+  if (pressedAt === undefined || state.startedAt === null) return state;
+  const end = Math.min(at, state.startedAt + state.roundMs);
+  return {
+    ...state,
+    counts: replaceAt(state.counts, id, (n) => n + holdAmount(end - pressedAt)),
+    pressedAt: replaceAt(state.pressedAt, id, () => undefined),
+    pulses: replaceAt(state.pulses, id, (n) => n + 1),
+  };
+}
+
 function release(state: GameState, code: string, at: number): GameState {
-  if (state.phase !== "playing" || state.mode !== "wabun") return state;
-  const player = state.ninjas.slice(0, state.numPlayers).find((n) => n.code === code);
+  if (state.phase !== "playing") return state;
+  const players = state.ninjas.slice(0, state.numPlayers);
+  const player = players.find((n) => n.code === code);
   const pressedAt = player && state.pressedAt[player.id];
   if (!player || pressedAt === undefined) return state;
+
+  if (state.mode === "tsugitashi") {
+    const banked = bankHold(state, player.id, at);
+    // Nothing left to play for once everyone has gone over.
+    return players.every((p) => isBust(banked.counts[p.id], banked.target)) ? endRound(banked) : banked;
+  }
+  if (state.mode !== "wabun") return state;
 
   const released = { ...state, pressedAt: replaceAt(state.pressedAt, player.id, () => undefined) };
   return sendSymbol(released, player.id, at - pressedAt >= WABUN_DASH_MS ? "-" : ".");
@@ -285,7 +318,8 @@ function strike(state: GameState, code: string, at: number): GameState {
   if (elapsed >= state.roundMs) return state;
 
   if (state.mode === "bakudan") return passBomb(state, player.id);
-  if (state.mode === "wabun") {
+  if (state.mode === "tsugitashi" && isBust(state.counts[player.id], state.target)) return state;
+  if (state.mode === "wabun" || state.mode === "tsugitashi") {
     return state.pressedAt[player.id] === undefined
       ? { ...state, pressedAt: replaceAt(state.pressedAt, player.id, () => at) }
       : state;
@@ -358,6 +392,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         : state;
     case "time_up":
       if (state.phase !== "playing") return state;
+      if (state.mode === "tsugitashi") {
+        const end = (state.startedAt ?? 0) + state.roundMs;
+        return endRound(state.pressedAt.reduce((s, _, id) => bankHold(s, id, end), state));
+      }
       if (state.mode !== "bakudan") return endRound(state);
       return state.holder === null
         ? nextRound(state)
