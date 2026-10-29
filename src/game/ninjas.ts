@@ -1,4 +1,5 @@
-import { COLOR_OPTIONS, type Ninja, type NinjaColor } from "./config";
+import { COLOR_OPTIONS } from "./config";
+import type { Ninja, NinjaColor } from "./types";
 
 export function withColor(ninja: Ninja, colorName: NinjaColor): Ninja {
   const { color, glow, bgImage } = COLOR_OPTIONS[colorName];

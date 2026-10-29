@@ -28,7 +28,8 @@ export default function App() {
     <div className={`game phase-${phase}`}>
       <div
         className="bg"
-        style={{ backgroundImage: `url("${getImageUrl("background", "png")}")` }}
+        aria-hidden="true"
+        style={{ backgroundImage: `url("${getImageUrl("background")}")` }}
       />
 
       <header className="title-bar">
@@ -113,11 +114,12 @@ export default function App() {
                 >
                   <img
                     src={getImageUrl("continue")}
-                    alt="Return to Dojo"
+                    alt=""
                     className="ghost-btn-img"
                   />
                 </button>
               </div>
+              <p className="hint">Press ENTER to return to the Dojo</p>
             </div>
           )}
         </>

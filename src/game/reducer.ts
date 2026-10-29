@@ -1,16 +1,5 @@
-import {
-  COUNTDOWN_START,
-  GAME_MS,
-  MAX_PLAYERS,
-  MAX_VISIBLE_HITS,
-  RESULTS_INPUT_LOCK_MS,
-  type GameMode,
-  type Hit,
-  type Ninja,
-  type NinjaColor,
-  type Phase,
-  type PlayerCount,
-} from "./config";
+import { COUNTDOWN_START, GAME_MS, MAX_PLAYERS, MAX_VISIBLE_HITS, RESULTS_INPUT_LOCK_MS } from "./config";
+import type { GameMode, Hit, Ninja, NinjaColor, Phase, PlayerCount } from "./types";
 import { assignColor, DEFAULT_NINJAS } from "./ninjas";
 
 function unit(seed: number): number {
@@ -182,8 +171,8 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         ? { ...state, countdown: state.countdown - 1 }
         : state;
     case "begin_play":
-      return state.phase === "countdown"
-        ? { ...state, phase: "playing", countdown: 0, startedAt: action.at }
+      return state.phase === "countdown" && state.countdown === 0
+        ? { ...state, phase: "playing", startedAt: action.at }
         : state;
     case "time_up":
       return state.phase === "playing" ? endRound(state) : state;

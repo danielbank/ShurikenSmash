@@ -1,12 +1,6 @@
 import { memo, useEffect, useRef, useState, type CSSProperties } from "react";
-import {
-  getOutcomeImageUrl,
-  type Ninja,
-  type Hit,
-  type GameMode,
-  type Outcome,
-  type PlayerResultInfo,
-} from "../game/config";
+import { getOutcomeImageUrl } from "../game/config";
+import type { Ninja, Hit, GameMode, Outcome, PlayerResultInfo } from "../game/types";
 import { Shuriken } from "./Shuriken";
 
 interface PlayerCardProps {
