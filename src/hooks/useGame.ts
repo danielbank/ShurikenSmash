@@ -10,6 +10,7 @@ import {
   getOutcomeVideoUrl,
 } from "../game/config";
 import type { Clock, GameMode, NinjaColor, Outcome, PlayerCount } from "../game/types";
+import { gamepadButtonCode, gamepadTimestamp, newlyPressed } from "../game/gamepad";
 import { createInitialState, gameReducer } from "../game/reducer";
 
 function createClock(initial: number): Clock {
@@ -99,6 +100,29 @@ export function useGame() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Gamepad Poller (arcade buttons on a USB encoder). Gamepads have no events, so poll every
+  // frame, but stamp presses with the report's timestamp so frame timing doesn't affect scores.
+  useEffect(() => {
+    const prev = new Map<number, boolean[]>();
+    let raf = 0;
+    const poll = () => {
+      const now = performance.now();
+      for (const gp of navigator.getGamepads?.() ?? []) {
+        if (!gp) continue;
+        const pressed = gp.buttons.map((b) => b.pressed);
+        const at = gamepadTimestamp(gp.timestamp, now);
+        for (const index of newlyPressed(prev.get(gp.index) ?? [], pressed)) {
+          const code = gamepadButtonCode(index);
+          if (code) dispatch({ type: "key_down", code, at });
+        }
+        prev.set(gp.index, pressed);
+      }
+      raf = requestAnimationFrame(poll);
+    };
+    raf = requestAnimationFrame(poll);
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   // Countdown Loop
