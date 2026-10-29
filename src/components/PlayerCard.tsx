@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type CSSProperties } from "react";
+import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { getOutcomeImageUrl } from "../game/config";
 import type { Ninja, Hit, GameMode, Knockout, Outcome, PlayerResultInfo } from "../game/types";
 import { Bomb } from "./Bomb";
@@ -24,6 +24,8 @@ interface PlayerCardProps {
   isExploding?: boolean;
   /** Bakudan: the last ninja standing. */
   isVictor?: boolean;
+  /** Mode-specific play area that replaces the shuriken and score (used by Wabun). */
+  playArea?: ReactNode;
   outcome?: Outcome;
   videoUrl?: string;
   result?: PlayerResultInfo;
@@ -46,6 +48,7 @@ export const PlayerCard = memo(function PlayerCard({
   knockout,
   isExploding = false,
   isVictor = false,
+  playArea,
   outcome,
   videoUrl,
   result,
@@ -119,7 +122,9 @@ export const PlayerCard = memo(function PlayerCard({
             <img src={result.bonusImage} alt="" className="card-bonus-img" />
           )}
         </div>
-      ) : activeVideoUrl ? null : (
+      ) : activeVideoUrl ? null : playArea ? (
+        playArea
+      ) : (
         <>
           <div className="shuriken-zone">
             {mode !== "bakudan" ? (

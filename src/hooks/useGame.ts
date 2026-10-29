@@ -10,7 +10,7 @@ import {
   getOutcomeVideoUrl,
 } from "../game/config";
 import type { Clock, GameMode, NinjaColor, Outcome, PlayerCount } from "../game/types";
-import { gamepadButtonCode, gamepadTimestamp, newlyPressed } from "../game/gamepad";
+import { gamepadButtonCode, gamepadTimestamp, newlyPressed, newlyReleased } from "../game/gamepad";
 import { createInitialState, gameReducer } from "../game/reducer";
 
 function createClock(initial: number): Clock {
@@ -44,7 +44,9 @@ export function useGame() {
   const [clock] = useState(() => createClock(GAME_MS));
   const [music] = useState(() => createMusicPlayer());
   const { phase, mode, countdown, startedAt, roundMs, ninjas, numPlayers, knockouts } = state;
+  const { pressedAt, mistakes } = state;
   const lastKnockout = knockouts.at(-1);
+  const totalMistakes = mistakes.reduce((sum, n) => sum + n, 0);
 
   const actions = useMemo(
     () => ({
@@ -98,8 +100,14 @@ export function useGame() {
       if (isConfirm && isKeyboardFocusedControl(e.target)) return;
       dispatch({ type: "key_down", code: e.code, at: e.timeStamp });
     };
+    // Releases matter for Wabun, where how long a button is held picks dot or dash.
+    const onKeyUp = (e: KeyboardEvent) => dispatch({ type: "key_up", code: e.code, at: e.timeStamp });
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
   }, []);
 
   // Gamepad Poller (arcade buttons on a USB encoder). Gamepads have no events, so poll every
@@ -113,9 +121,14 @@ export function useGame() {
         if (!gp) continue;
         const pressed = gp.buttons.map((b) => b.pressed);
         const at = gamepadTimestamp(gp.timestamp, now);
-        for (const index of newlyPressed(prev.get(gp.index) ?? [], pressed)) {
+        const before = prev.get(gp.index) ?? [];
+        for (const index of newlyPressed(before, pressed)) {
           const code = gamepadButtonCode(index);
           if (code) dispatch({ type: "key_down", code, at });
+        }
+        for (const index of newlyReleased(before, pressed)) {
+          const code = gamepadButtonCode(index);
+          if (code) dispatch({ type: "key_up", code, at });
         }
         prev.set(gp.index, pressed);
       }
@@ -128,16 +141,16 @@ export function useGame() {
   // Countdown Loop
   useEffect(() => {
     if (phase !== "countdown") return;
-    clock.set(GAME_MS);
+    clock.set(roundMs);
     const id = window.setTimeout(
       () =>
         countdown > 0
           ? dispatch({ type: "countdown_tick" })
-          : dispatch({ type: "begin_play", at: performance.now() }),
+          : dispatch({ type: "begin_play", at: performance.now(), random: Math.random() }),
       countdown > 0 ? 1000 : COUNTDOWN_GO_MS
     );
     return () => window.clearTimeout(id);
-  }, [phase, countdown, clock]);
+  }, [phase, countdown, roundMs, clock]);
 
   // Game Play Loop
   useEffect(() => {
@@ -169,6 +182,21 @@ export function useGame() {
     if (lastKnockout.cause === "boom") music.boom();
     else music.fumble();
   }, [lastKnockout, music]);
+
+  // Wabun: a Morse sidetone (one pitch per player) sounds while each button is held
+  useEffect(() => {
+    if (mode !== "wabun") return;
+    pressedAt.forEach((at, id) => music.sidetone(id, at !== undefined));
+  }, [mode, pressedAt, music]);
+
+  useEffect(() => {
+    if (phase !== "playing") music.silenceSidetones();
+  }, [phase, music]);
+
+  // Wabun: fail buzz when someone sends a wrong dot or dash
+  useEffect(() => {
+    if (totalMistakes > 0) music.fumble();
+  }, [totalMistakes, music]);
 
   // Show the elimination, then move on to the next round (or the finale)
   useEffect(() => {

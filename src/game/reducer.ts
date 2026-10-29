@@ -6,6 +6,8 @@ import {
   MAX_PLAYERS,
   MAX_VISIBLE_HITS,
   RESULTS_INPUT_LOCK_MS,
+  WABUN_DASH_MS,
+  WABUN_MS,
 } from "./config";
 import type {
   GameMode,
@@ -18,6 +20,7 @@ import type {
   PlayerCount,
 } from "./types";
 import { assignColor, DEFAULT_NINJAS } from "./ninjas";
+import { WORDS } from "./wabun";
 
 function unit(seed: number): number {
   let t = (seed + 0x6d2b79f5) | 0;
@@ -59,6 +62,16 @@ export interface GameState {
   holder: number | null;
   /** Bakudan: eliminations in the order they happened. */
   knockouts: Knockout[];
+  /** Wabun: index into WORDS of the word being spelled. */
+  wordIndex: number;
+  /** Wabun: Morse characters each player has sent correctly so far. */
+  progress: number[];
+  /** Wabun: dots and dashes of the character each player is partway through. */
+  partials: string[];
+  /** Wabun: when each player's button went down, while it is held. */
+  pressedAt: (number | undefined)[];
+  /** Wabun: mistakes per player (each one reset them to the start). */
+  mistakes: number[];
 }
 
 export type GameAction =
@@ -67,7 +80,8 @@ export type GameAction =
   | { type: "select_color"; playerId: number; color: NinjaColor }
   | { type: "start" }
   | { type: "countdown_tick" }
-  | { type: "begin_play"; at: number }
+  /** `random` is a number in [0, 1) that seeds the round's random choices. */
+  | { type: "begin_play"; at: number; random: number }
   | { type: "time_up" }
   | { type: "next_round" }
   | { type: "video_ended"; playerId: number }
@@ -75,7 +89,8 @@ export type GameAction =
   | { type: "show_results"; at: number }
   | { type: "hit_done"; playerId: number; hitId: number }
   | { type: "return_to_menu" }
-  | { type: "key_down"; code: string; at: number };
+  | { type: "key_down"; code: string; at: number }
+  | { type: "key_up"; code: string; at: number };
 
 const CONFIRM_CODES = new Set(["Enter", "NumpadEnter", "Space"]);
 const PLAYER_COUNT_CODES: Record<string, PlayerCount> = {
@@ -101,6 +116,10 @@ function roundState() {
     alive: filled(true),
     holder: null,
     knockouts: [],
+    progress: filled(0),
+    partials: filled(""),
+    pressedAt: filled<number | undefined>(undefined),
+    mistakes: filled(0),
   };
 }
 
@@ -112,6 +131,7 @@ export function createInitialState(): GameState {
     ninjas: DEFAULT_NINJAS,
     countdown: COUNTDOWN_START,
     hitSeq: 0,
+    wordIndex: 0,
     ...roundState(),
   };
 }
@@ -121,7 +141,13 @@ function replaceAt<T>(list: readonly T[], index: number, update: (value: T) => T
 }
 
 function startRound(state: GameState): GameState {
-  return { ...state, ...roundState(), phase: "countdown", countdown: COUNTDOWN_START };
+  return {
+    ...state,
+    ...roundState(),
+    phase: "countdown",
+    countdown: COUNTDOWN_START,
+    roundMs: state.mode === "wabun" ? WABUN_MS : GAME_MS,
+  };
 }
 
 function endRound(state: GameState): GameState {
@@ -132,13 +158,18 @@ function endRound(state: GameState): GameState {
   };
 }
 
-function beginPlay(state: GameState, at: number): GameState {
+function beginPlay(state: GameState, at: number, random: number): GameState {
   const next: GameState = { ...state, phase: "playing", startedAt: at };
+  // Randomness arrives with the action so the reducer stays pure and testable.
+  const seed = Math.floor(random * 2 ** 32) | 0;
+
+  if (state.mode === "wabun") {
+    // Never repeat the previous word back to back.
+    const offset = 1 + Math.floor(unit(seed) * (WORDS.length - 1));
+    return { ...next, wordIndex: (state.wordIndex + offset) % WORDS.length };
+  }
   if (state.mode !== "bakudan") return next;
 
-  // The start timestamp is effectively random, so it seeds the hidden fuse length and
-  // the starting holder while keeping the reducer pure and testable.
-  const seed = (Math.floor(at * 1000) ^ Math.imul(state.round, 0x9e3779b1)) | 0;
   const ids = aliveIds(state);
   return {
     ...next,
@@ -203,6 +234,46 @@ function passBomb(state: GameState, id: number): GameState {
   };
 }
 
+/** Wabun: turn a finished press into a dot or dash and check it against the word. */
+function sendSymbol(state: GameState, id: number, symbol: "." | "-"): GameState {
+  const { codes } = WORDS[state.wordIndex];
+  const target = codes[state.progress[id]];
+  const partial = state.partials[id] + symbol;
+  const hitSeq = state.hitSeq + 1;
+  const base: GameState = {
+    ...state,
+    hitSeq,
+    pulses: replaceAt(state.pulses, id, (n) => n + 1),
+  };
+
+  if (!target?.startsWith(partial)) {
+    return {
+      ...base,
+      progress: replaceAt(state.progress, id, () => 0),
+      partials: replaceAt(state.partials, id, () => ""),
+      mistakes: replaceAt(state.mistakes, id, (n) => n + 1),
+    };
+  }
+
+  if (partial !== target) {
+    return { ...base, partials: replaceAt(state.partials, id, () => partial) };
+  }
+
+  const progress = replaceAt(state.progress, id, (n) => n + 1);
+  const updated = { ...base, progress, partials: replaceAt(state.partials, id, () => "") };
+  return progress[id] === codes.length ? endRound(updated) : updated;
+}
+
+function release(state: GameState, code: string, at: number): GameState {
+  if (state.phase !== "playing" || state.mode !== "wabun") return state;
+  const player = state.ninjas.slice(0, state.numPlayers).find((n) => n.code === code);
+  const pressedAt = player && state.pressedAt[player.id];
+  if (!player || pressedAt === undefined) return state;
+
+  const released = { ...state, pressedAt: replaceAt(state.pressedAt, player.id, () => undefined) };
+  return sendSymbol(released, player.id, at - pressedAt >= WABUN_DASH_MS ? "-" : ".");
+}
+
 function strike(state: GameState, code: string, at: number): GameState {
   if (state.startedAt === null) return state;
 
@@ -214,6 +285,11 @@ function strike(state: GameState, code: string, at: number): GameState {
   if (elapsed >= state.roundMs) return state;
 
   if (state.mode === "bakudan") return passBomb(state, player.id);
+  if (state.mode === "wabun") {
+    return state.pressedAt[player.id] === undefined
+      ? { ...state, pressedAt: replaceAt(state.pressedAt, player.id, () => at) }
+      : state;
+  }
 
   const id = player.id;
   if (state.mode === "blind" && state.strikeTimes[id] !== undefined) return state;
@@ -278,7 +354,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         : state;
     case "begin_play":
       return state.phase === "countdown" && state.countdown === 0
-        ? beginPlay(state, action.at)
+        ? beginPlay(state, action.at, action.random)
         : state;
     case "time_up":
       if (state.phase !== "playing") return state;
@@ -313,5 +389,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return state.phase === "results" ? { ...state, phase: "menu" } : state;
     case "key_down":
       return handleKey(state, action.code, action.at);
+    case "key_up":
+      return release(state, action.code, action.at);
   }
 }

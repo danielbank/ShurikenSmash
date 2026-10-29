@@ -48,6 +48,14 @@ export function MenuPanel({
         >
           💣 Bakudan (Hot Potato)
         </button>
+        <button
+          type="button"
+          className={`tab-btn ${mode === "wabun" ? "active" : ""}`}
+          aria-pressed={mode === "wabun"}
+          onClick={() => onSelectMode("wabun")}
+        >
+          🍣 Wabun (Morse Race)
+        </button>
       </div>
 
       <div className="menu-interactive-section">

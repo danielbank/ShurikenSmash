@@ -9,6 +9,10 @@ export const BLIND_THRESHOLD_MS = 5_000;
 /** Bakudan fuse length is random per round within this range (and hidden from players). */
 export const BAKUDAN_MIN_MS = 10_000;
 export const BAKUDAN_MAX_MS = 20_000;
+/** Wabun: time limit to spell the word. */
+export const WABUN_MS = 90_000;
+/** Wabun: a press held at least this long is a dash; shorter is a dot. */
+export const WABUN_DASH_MS = 200;
 /** How long an elimination is shown before the next Bakudan round's countdown. */
 export const BOOM_HOLD_MS = 2_500;
 /** Safety net: the round moves on even if a video never fires `ended`. */
@@ -92,6 +96,16 @@ export const MODE_DETAILS: Record<
       "Press your key without the bakudan and you're out!",
       "Holding it when the music stops? BOOM — you're out.",
       "Last ninja standing wins.",
+    ],
+  },
+  wabun: {
+    title: "WABUN",
+    rules: [
+      "A sushi word appears — spell it in Wabun (Japanese Morse) code.",
+      "Tap your button for a dot ・, hold it for a dash －.",
+      "Voiced kana like GU are two characters: KU then the ゛ mark.",
+      "One wrong dot or dash sends you back to the start of the word.",
+      "First ninja to spell the whole word wins!",
     ],
   },
 };

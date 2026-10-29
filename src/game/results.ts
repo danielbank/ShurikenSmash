@@ -8,6 +8,9 @@ export interface RoundInput {
   strikeTimes: readonly (number | undefined)[];
   /** Bakudan elimination order; everyone not listed is still standing. */
   knockouts?: readonly Knockout[];
+  /** Wabun: Morse characters each player sent correctly, out of `wordLength`. */
+  progress?: readonly number[];
+  wordLength?: number;
 }
 
 export interface RoundResults {
@@ -54,6 +57,8 @@ export function computeResults({
   counts,
   strikeTimes,
   knockouts = [],
+  progress = [],
+  wordLength = 0,
 }: RoundInput): RoundResults {
   const byPlayer: Record<number, PlayerResultInfo> = {};
   const winnerIds = new Set<number>();
@@ -88,6 +93,23 @@ export function computeResults({
       const { cause, round } = knockouts[index];
       const label = `${cause === "boom" ? "Blown Up" : "Fumbled"} · Round ${round}`;
       byPlayer[p.id] = placed(playerCount - index, label, playerCount);
+    }
+    return { winnerIds, byPlayer };
+  }
+
+  if (mode === "wabun") {
+    // Only a ninja who spelled the whole word wins; everyone else ranks by how far they got.
+    const entries = players.map((p) => ({ id: p.id, sent: progress[p.id] ?? 0 }));
+    const finished = entries.some((e) => e.sent >= wordLength);
+    for (const entry of entries) {
+      const label = entry.sent >= wordLength ? "Spelled It!" : `${entry.sent} / ${wordLength} Sent`;
+      if (!finished) {
+        byPlayer[entry.id] = failed("TIME UP", label);
+        continue;
+      }
+      const rank = competitionRank(entries, entry, (a, b) => a.sent > b.sent);
+      byPlayer[entry.id] = placed(rank, label, playerCount);
+      if (rank === 1) winnerIds.add(entry.id);
     }
     return { winnerIds, byPlayer };
   }

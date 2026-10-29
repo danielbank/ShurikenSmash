@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gamepadButtonCode, gamepadTimestamp, newlyPressed } from "./gamepad";
+import { gamepadButtonCode, gamepadTimestamp, newlyPressed, newlyReleased } from "./gamepad";
 
 describe("newlyPressed", () => {
   it("reports only released -> pressed transitions", () => {
@@ -12,6 +12,16 @@ describe("newlyPressed", () => {
 
   it("treats buttons with no previous state as released", () => {
     expect(newlyPressed([], [false, true])).toEqual([1]);
+  });
+});
+
+describe("newlyReleased", () => {
+  it("reports only pressed -> released transitions", () => {
+    expect(newlyReleased([true, true, false, true], [false, true, false, true])).toEqual([0]);
+  });
+
+  it("treats a disappeared button as released", () => {
+    expect(newlyReleased([false, true], [false])).toEqual([1]);
   });
 });
 

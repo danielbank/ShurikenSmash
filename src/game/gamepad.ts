@@ -10,6 +10,15 @@ export function newlyPressed(prev: readonly boolean[], next: readonly boolean[])
   return indices;
 }
 
+/** Indices of buttons that went from pressed to released since the previous poll. */
+export function newlyReleased(prev: readonly boolean[], next: readonly boolean[]): number[] {
+  const indices: number[] = [];
+  prev.forEach((pressed, i) => {
+    if (pressed && !next[i]) indices.push(i);
+  });
+  return indices;
+}
+
 /** The player key code a gamepad button stands in for, so presses flow through the keyboard path. */
 export function gamepadButtonCode(index: number): string | undefined {
   const playerId = GAMEPAD_BUTTON_PLAYERS[index];

@@ -1,5 +1,5 @@
 export type Phase = "menu" | "countdown" | "playing" | "boom" | "video" | "ended" | "results";
-export type GameMode = "mash" | "blind" | "bakudan";
+export type GameMode = "mash" | "blind" | "bakudan" | "wabun";
 export type PlayerCount = 3 | 4;
 export type Outcome = "win" | "lose";
 export type NinjaColor = "blue" | "green" | "orange" | "purple" | "red" | "yellow";

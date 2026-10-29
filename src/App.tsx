@@ -1,10 +1,14 @@
 import { useMemo } from "react";
 import { MODE_DETAILS, getOutcomeVideoUrl, getImageUrl } from "./game/config";
 import { computeResults } from "./game/results";
+import { WORDS } from "./game/wabun";
 import { useGame } from "./hooks/useGame";
 import { Timer } from "./components/Timer";
 import { PlayerCard } from "./components/PlayerCard";
 import { MenuPanel } from "./components/MenuPanel";
+import { WabunChart } from "./components/WabunChart";
+import { WabunProgress } from "./components/WabunProgress";
+import { WordBanner } from "./components/WordBanner";
 import "./App.css";
 
 export default function App() {
@@ -24,7 +28,13 @@ export default function App() {
     hitSeq,
     knockouts,
     alive,
+    wordIndex,
+    progress,
+    partials,
+    pressedAt,
+    mistakes,
   } = state;
+  const word = WORDS[wordIndex];
   const { logoImage, title } = MODE_DETAILS[mode];
   const lastKnockout = knockouts.at(-1);
 
@@ -33,8 +43,19 @@ export default function App() {
   const isRoundOver = phase === "video" || phase === "ended" || phase === "results";
 
   const results = useMemo(
-    () => (isRoundOver ? computeResults({ mode, players, counts, strikeTimes, knockouts }) : null),
-    [isRoundOver, mode, players, counts, strikeTimes, knockouts]
+    () =>
+      isRoundOver
+        ? computeResults({
+            mode,
+            players,
+            counts,
+            strikeTimes,
+            knockouts,
+            progress,
+            wordLength: word.codes.length,
+          })
+        : null,
+    [isRoundOver, mode, players, counts, strikeTimes, knockouts, progress, word]
   );
 
   const activeCounts = counts.slice(0, numPlayers);
@@ -43,7 +64,7 @@ export default function App() {
   const leadersCount = activeCounts.filter((c) => c === topScore).length;
 
   return (
-    <div className={`game phase-${phase}`}>
+    <div className={`game phase-${phase} mode-${mode}`}>
       <div
         className="bg"
         aria-hidden="true"
@@ -72,7 +93,14 @@ export default function App() {
 
       {phase !== "menu" && (
         <>
-          <Timer phase={phase} mode={mode} clock={clock} round={round} />
+          <Timer phase={phase} mode={mode} clock={clock} round={round} roundMs={state.roundMs} />
+
+          {mode === "wabun" && (phase === "playing" || phase === "countdown") && (
+            <div className="wabun-board">
+              {phase === "playing" && <WordBanner word={word} />}
+              <WabunChart />
+            </div>
+          )}
 
           <div className={`arena players-${numPlayers}`}>
             {players.map((p) => {
@@ -108,6 +136,17 @@ export default function App() {
                   bombKey={hitSeq}
                   knockout={knockouts.find((k) => k.playerId === p.id)}
                   isExploding={phase === "boom" && lastKnockout?.playerId === p.id}
+                  playArea={
+                    mode === "wabun" && phase !== "countdown" ? (
+                      <WabunProgress
+                        word={word}
+                        sent={progress[p.id]}
+                        partial={partials[p.id]}
+                        pressedAt={pressedAt[p.id]}
+                        mistakes={mistakes[p.id]}
+                      />
+                    ) : undefined
+                  }
                   outcome={outcome}
                   videoUrl={videoUrl}
                   result={phase === "results" ? results?.byPlayer[p.id] : undefined}

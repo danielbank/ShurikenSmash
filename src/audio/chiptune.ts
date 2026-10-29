@@ -138,7 +138,13 @@ export interface MusicPlayer {
   boom: () => void;
   /** One-shot "you messed up" sound for pressing without the bomb. */
   fumble: () => void;
+  /** Turns a player's Morse key tone on or off (each player has their own pitch). */
+  sidetone: (playerId: number, on: boolean) => void;
+  silenceSidetones: () => void;
 }
+
+/** Morse sidetone pitches per player, far enough apart to tell who is keying. */
+const SIDETONE_HZ = [600, 750, 900, 1050];
 
 export function createMusicPlayer(song: Song = BAKUDAN_SONG): MusicPlayer {
   let ctx: AudioContext | null = null;
@@ -146,6 +152,7 @@ export function createMusicPlayer(song: Song = BAKUDAN_SONG): MusicPlayer {
   let noise: AudioBuffer | null = null;
   let bus: GainNode | null = null;
   let timer = 0;
+  const sidetones = new Map<number, { osc: OscillatorNode; gain: GainNode }>();
 
   const stepSeconds = 60 / song.bpm / 4;
   const tracks = song.tracks.map((t) => ({ ...t, ...parseTrack(t.notes) }));
@@ -302,5 +309,32 @@ export function createMusicPlayer(song: Song = BAKUDAN_SONG): MusicPlayer {
     }
   };
 
-  return { start, stop, boom, fumble };
+  const sidetone = (playerId: number, on: boolean) => {
+    const current = sidetones.get(playerId);
+    if (!on) {
+      if (!current || !ctx) return;
+      // Short release ramp avoids a click when the key lifts.
+      current.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.005);
+      current.osc.stop(ctx.currentTime + 0.05);
+      sidetones.delete(playerId);
+      return;
+    }
+    if (current) return;
+    const c = ensureContext();
+    const osc = c.createOscillator();
+    osc.type = "square";
+    osc.frequency.value = SIDETONE_HZ[playerId % SIDETONE_HZ.length];
+    const gain = c.createGain();
+    gain.gain.setValueAtTime(0, c.currentTime);
+    gain.gain.setTargetAtTime(0.06, c.currentTime, 0.003);
+    osc.connect(gain).connect(c.destination);
+    osc.start();
+    sidetones.set(playerId, { osc, gain });
+  };
+
+  const silenceSidetones = () => {
+    for (const id of sidetones.keys()) sidetone(id, false);
+  };
+
+  return { start, stop, boom, fumble, sidetone, silenceSidetones };
 }
