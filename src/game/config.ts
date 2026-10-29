@@ -1,6 +1,6 @@
 /* ---------- Types ---------- */
-export type Phase = "menu" | "countdown" | "playing" | "video" | "ended" | "results";
-export type GameMode = "mash" | "blind";
+export type Phase = "menu" | "countdown" | "playing" | "boom" | "video" | "ended" | "results";
+export type GameMode = "mash" | "blind" | "bakudan";
 export type PlayerCount = 3 | 4;
 export type Outcome = "win" | "lose";
 export type NinjaColor = "blue" | "green" | "orange" | "purple" | "red" | "yellow";
@@ -27,6 +27,14 @@ export interface Hit {
   rot: number;
 }
 
+export type KnockoutCause = "boom" | "fumble";
+
+export interface Knockout {
+  playerId: number;
+  round: number;
+  cause: KnockoutCause;
+}
+
 export interface PlayerResultInfo {
   /** 1-based competition rank; `null` for players who failed / nobody scored. */
   rank: number | null;
@@ -46,6 +54,11 @@ export interface Clock {
 export const GAME_MS = 10_000;
 export const COUNTDOWN_START = 3;
 export const BLIND_THRESHOLD_MS = 5_000;
+/** Bakudan fuse length is random per round within this range (and hidden from players). */
+export const BAKUDAN_MIN_MS = 10_000;
+export const BAKUDAN_MAX_MS = 20_000;
+/** How long an elimination is shown before the next Bakudan round's countdown. */
+export const BOOM_HOLD_MS = 2_500;
 /** Safety net: the round moves on even if a video never fires `ended`. */
 export const VIDEO_FALLBACK_MS = 12_000;
 /** How long the static win/lose art is shown before the results appear. */
@@ -102,7 +115,7 @@ export const AVAILABLE_COLORS = Object.keys(COLOR_OPTIONS) as NinjaColor[];
 /* ---------- Modes ---------- */
 export const MODE_DETAILS: Record<
   GameMode,
-  { title: string; logoImage: string; rulesImage: string }
+  { title: string; logoImage?: string; rulesImage?: string; rules?: readonly string[] }
 > = {
   mash: {
     title: "SHURIKEN SMASH",
@@ -113,5 +126,15 @@ export const MODE_DETAILS: Record<
     title: "SHADOW STRIKE",
     logoImage: getImageUrl("shadow-strike"),
     rulesImage: getImageUrl("strike-rules"),
+  },
+  bakudan: {
+    title: "BAKUDAN",
+    rules: [
+      "Music plays while the fuse burns — nobody knows for how long.",
+      "Holding the bakudan? Press your key to pass it to the next ninja.",
+      "Press your key without the bakudan and you're out!",
+      "Holding it when the music stops? BOOM — you're out.",
+      "Last ninja standing wins.",
+    ],
   },
 };
